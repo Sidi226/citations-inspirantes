@@ -40,10 +40,11 @@
       </div>
 
       <div class="controls">
+        <button id="whatsappBtn" class="small">WhatsApp</button>
         <button id="newBtn" class="primary">Nouvelle citation</button>
         <button id="pauseBtn" class="small">Pause</button>
         <button id="copyBtn" class="small">Copier</button>
-        <button id="tweetBtn" class="small">Partager</button>
+        <button id="tweetBtn, whatsappBtn" class="small">Partager</button>
       </div>
 
       <div class="settings">
@@ -75,6 +76,17 @@
 
   // Petite liste locale de citations (vous pouvez en ajouter autant que vous voulez)
   const LOCAL_QUOTES = [
+    // --- Ajout automatique d'une grande base de citations (50+) ---
+    {text: "Le courage n’est pas l’absence de peur, mais la capacité de la vaincre.", author: "Nelson Mandela"},
+    {text: "L’avenir appartient à ceux qui croient à la beauté de leurs rêves.", author: "Eleanor Roosevelt"},
+    {text: "La simplicité est la sophistication suprême.", author: "Leonard de Vinci"},
+    {text: "Ta valeur ne dépend pas de ce que les autres pensent de toi.", author: "Inconnu"},
+    {text: "Chaque jour est une nouvelle chance de devenir meilleur.", author: "Inconnu"},
+    {text: "Le succès est la somme de petits efforts répétés jour après jour.", author: "Robert Collier"},
+    {text: "N’attends pas que les conditions soient parfaites pour commencer.", author: "Inconnu"},
+    {text: "Vis comme si tu devais mourir demain. Apprends comme si tu devais vivre toujours.", author: "Gandhi"},
+    {text: "N’abandonne jamais, car c’est souvent la dernière clé du trousseau qui ouvre la porte.", author: "Paulo Coelho"},
+    {text: "Si tu veux quelque chose que tu n’as jamais eu, fais quelque chose que tu n’as jamais fait.", author: "Thomas Jefferson"},
     {text: "La seule façon de faire du bon travail est d'aimer ce que vous faites.", author: "Steve Jobs"},
     {text: "Ne comptez pas les jours, faites que les jours comptent.", author: "Muhammad Ali"},
     {text: "Le succès n'est pas final, l'échec n'est pas fatal : c'est le courage de continuer qui compte.", author: "Winston Churchill"},
@@ -178,6 +190,13 @@
     }).catch(()=>{
       alert('Copie non supportée');
     });
+  });
+
+  whatsappBtn.addEventListener('click', ()=>{
+    if(!current) return;
+    const text = encodeURIComponent(`"${current.text}" — ${current.author || 'Anonyme'}`);
+    const url = `https://wa.me/?text=${text}`;
+    window.open(url, '_blank');
   });
 
   tweetBtn.addEventListener('click', ()=>{
