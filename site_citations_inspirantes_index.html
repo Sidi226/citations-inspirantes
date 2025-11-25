@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Citations Inspirantes — Auto</title>
+  <meta name="description" content="Site gratuit qui affiche des citations inspirantes aléatoires et les fait tourner automatiquement." />
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#60a5fa;--muted:#94a3b8;--glass: rgba(255,255,255,0.04)}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial;
+      background:linear-gradient(180deg,#071025 0%, #081024 60%);color:#e6eef8;display:flex;align-items:center;justify-content:center;padding:32px
+    }
+    .wrap{max-width:900px;width:100%;}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:16px;padding:28px;box-shadow:0 10px 30px rgba(2,6,23,0.6);}
+    h1{margin:0 0 8px;font-size:20px;letter-spacing:0.2px}
+    .quote-box{min-height:140px;display:flex;flex-direction:column;gap:12px;justify-content:center;padding:18px;border-radius:12px;background:var(--glass);}
+    .quote{font-size:20px;line-height:1.4;margin:0;text-align:center}
+    .author{font-size:14px;color:var(--muted);text-align:center}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:16px}
+    button{background:transparent;border:1px solid rgba(255,255,255,0.06);color:inherit;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:600}
+    button.primary{background:linear-gradient(90deg,var(--accent),#4f46e5);border:0;color:white}
+    .small{font-size:13px;padding:8px 10px}
+    .meta{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:12px;color:var(--muted);font-size:13px}
+    .settings{margin-top:18px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+    input[type=range]{width:160px}
+    footer{margin-top:18px;text-align:center;color:var(--muted);font-size:13px}
+    @media(min-width:720px){ .quote{font-size:24px} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Citations Inspirantes — automatique et gratuite</h1>
+      <div class="quote-box" id="quoteBox" aria-live="polite">
+        <p class="quote" id="quoteText">Chargement...</p>
+        <p class="author" id="quoteAuthor"></p>
+      </div>
+
+      <div class="controls">
+        <button id="newBtn" class="primary">Nouvelle citation</button>
+        <button id="pauseBtn" class="small">Pause</button>
+        <button id="copyBtn" class="small">Copier</button>
+        <button id="tweetBtn" class="small">Partager</button>
+      </div>
+
+      <div class="settings">
+        <label title="Intervalle de rotation automatique">Intervalle: <span id="intervalLabel">12</span>s</label>
+        <input id="intervalRange" type="range" min="5" max="60" value="12" />
+
+        <label><input id="autoToggle" type="checkbox" checked /> Auto</label>
+        <label><input id="apiToggle" type="checkbox" /> Utiliser API (quotable.io)</label>
+      </div>
+
+      <div class="meta">
+        <span id="quoteCount">0 citations locales</span>
+      </div>
+
+      <footer>
+        Déployez gratuitement: GitHub Pages ou Netlify. (Guide dans les commentaires du code)
+      </footer>
+    </div>
+  </div>
+
+  <script>
+  // --------------------
+  // CONFIG (modifiez si besoin)
+  // --------------------
+  const AUTO_START = true;           // démarre la rotation auto
+  const AUTO_INTERVAL_DEFAULT = 12000; // ms
+  const USE_API_FALLBACK = true;     // si activé, on essaiera l'API publique Quotable
+  // --------------------
+
+  // Petite liste locale de citations (vous pouvez en ajouter autant que vous voulez)
+  const LOCAL_QUOTES = [
+    {text: "La seule façon de faire du bon travail est d'aimer ce que vous faites.", author: "Steve Jobs"},
+    {text: "Ne comptez pas les jours, faites que les jours comptent.", author: "Muhammad Ali"},
+    {text: "Le succès n'est pas final, l'échec n'est pas fatal : c'est le courage de continuer qui compte.", author: "Winston Churchill"},
+    {text: "Commencez où vous êtes. Utilisez ce que vous avez. Faites ce que vous pouvez.", author: "Arthur Ashe"},
+    {text: "Vous devenez ce à quoi vous pensez le plus souvent.", author: "Earl Nightingale"},
+    {text: "La vie, ce n'est pas d'attendre que l'orage passe, c'est d'apprendre à danser sous la pluie.", author: "Sénèque"},
+    {text: "Le plus grand risque est de ne prendre aucun risque.", author: "Mark Zuckerberg"},
+    {text: "Fais de ta vie un rêve, et d'un rêve, une réalité.", author: "Antoine de Saint-Exupéry"},
+    {text: "Agis comme s'il était impossible d'échouer.", author: "Dorothea Brande"},
+    {text: "L'échec est simplement l'opportunité de recommencer de manière plus intelligente.", author: "Henry Ford"}
+  ];
+
+  // DOM
+  const qText = document.getElementById('quoteText');
+  const qAuthor = document.getElementById('quoteAuthor');
+  const newBtn = document.getElementById('newBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const copyBtn = document.getElementById('copyBtn');
+  const tweetBtn = document.getElementById('tweetBtn');
+  const intervalRange = document.getElementById('intervalRange');
+  const intervalLabel = document.getElementById('intervalLabel');
+  const autoToggle = document.getElementById('autoToggle');
+  const apiToggle = document.getElementById('apiToggle');
+  const quoteCount = document.getElementById('quoteCount');
+
+  let current = null;
+  let timer = null;
+  let auto = AUTO_START;
+  let intervalMs = AUTO_INTERVAL_DEFAULT;
+
+  // accessibility: announce number of local quotes
+  function updateMeta(){ quoteCount.textContent = `${LOCAL_QUOTES.length} citations locales`; }
+  updateMeta();
+
+  function pickLocal(){
+    const i = Math.floor(Math.random() * LOCAL_QUOTES.length);
+    return LOCAL_QUOTES[i];
+  }
+
+  async function fetchFromApi(){
+    try{
+      const res = await fetch('https://api.quotable.io/random');
+      if(!res.ok) throw new Error('API non dispo');
+      const j = await res.json();
+      return {text: j.content, author: j.author || 'Anonyme'};
+    }catch(e){
+      return null;
+    }
+  }
+
+  async function showRandom(){
+    // prefer API if activated
+    if(apiToggle.checked){
+      const apiQuote = await fetchFromApi();
+      if(apiQuote){ setQuote(apiQuote); return; }
+      // sinon fallback local
+    }
+    setQuote(pickLocal());
+  }
+
+  function setQuote(q){
+    current = q;
+    qText.textContent = `"${q.text}"`;
+    qAuthor.textContent = q.author ? `— ${q.author}` : '';
+  }
+
+  function startTimer(){
+    stopTimer();
+    if(!auto) return;
+    timer = setInterval(showRandom, intervalMs);
+    pauseBtn.textContent = 'Pause';
+  }
+  function stopTimer(){ if(timer){ clearInterval(timer); timer = null; }}
+
+  // initial display
+  (async ()=>{
+    intervalLabel.textContent = intervalRange.value;
+    intervalMs = parseInt(intervalRange.value,10)*1000;
+    auto = autoToggle.checked = AUTO_START;
+
+    // first show: try API if allowed and USE_API_FALLBACK true
+    if(USE_API_FALLBACK && apiToggle){ /* intentionally left */ }
+    await showRandom();
+    if(auto) startTimer();
+  })();
+
+  // EVENTS
+  newBtn.addEventListener('click', showRandom);
+
+  pauseBtn.addEventListener('click', ()=>{
+    if(timer){ stopTimer(); pauseBtn.textContent = 'Reprendre'; }
+    else{ startTimer(); }
+  });
+
+  copyBtn.addEventListener('click', ()=>{
+    if(!current) return;
+    const text = `${current.text} — ${current.author || 'Anonyme'}`;
+    navigator.clipboard.writeText(text).then(()=>{
+      copyBtn.textContent = 'Copié ✓';
+      setTimeout(()=>copyBtn.textContent = 'Copier',1200);
+    }).catch(()=>{
+      alert('Copie non supportée');
+    });
+  });
+
+  tweetBtn.addEventListener('click', ()=>{
+    if(!current) return;
+    const share = encodeURIComponent(`"${current.text}" — ${current.author || 'Anonyme'}`);
+    const url = `https://twitter.com/intent/tweet?text=${share}`;
+    window.open(url, '_blank');
+  });
+
+  intervalRange.addEventListener('input', (e)=>{
+    const s = e.target.value; intervalLabel.textContent = s; intervalMs = parseInt(s,10)*1000; startTimer();
+  });
+
+  autoToggle.addEventListener('change', (e)=>{ auto = e.target.checked; if(auto) startTimer(); else stopTimer(); });
+
+  apiToggle.addEventListener('change', ()=>{/* just toggles behavior on next fetch */});
+
+  // keyboard: space for new quote
+  document.addEventListener('keydown', (e)=>{ if(e.code === 'Space'){ e.preventDefault(); showRandom(); } });
+
+  // --------------------
+  // NOTES DE DÉPLOIEMENT (à lire si vous voulez rendre le site public)
+  // 1) Créez un repository GitHub, placez ce fichier nommé index.html à la racine.
+  // 2) Allez dans Settings → Pages → Source: "Deploy from a branch" (main)/(master) and choose / (root). Le site sera disponible à https://<votre-username>.github.io/<repo>
+  // 3) Alternativement, déployez sur Netlify: glissez-déposez index.html dans Netlify Drop (compte gratuit) ou connectez votre repo.
+  // 4) Si vous voulez des citations dynamiques depuis une base que vous contrôlez, hébergez un fichier JSON sur GitHub et changez pickLocal() pour fetch('quotes.json').
+  // 5) Pour conserver automatiquement des nouvelles citations (dans votre propre backend) il faudrait ajouter un petit script serveur — mais pour un site gratuit et sans backend, gardez les quotes locales + l'API publique.
+  // --------------------
+  </script>
+</body>
+</html>
